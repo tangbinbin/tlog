@@ -224,7 +224,10 @@ func (l *Logger) format(a *Atom) (int, []byte) {
 		fmt.Fprintf(w, a.format, a.args...)
 	}
 	w.WriteByte(10)
-	return w.Len(), w.Bytes()
+	len := w.Len()
+	data := make([]byte, len)
+	copy(data, w.Bytes())
+	return len, data
 }
 
 func (l *Logger) rm() {
