@@ -243,7 +243,7 @@ func (l *Logger) p(level LEVEL, args ...interface{}) {
 	if l == nil || l.debug {
 		mu.Lock()
 		defer mu.Unlock()
-		fmt.Printf("%s %s %s:%d", l.genTime(), levelText[level], file, line)
+		fmt.Printf("%s %s %s:%d ", l.genTime(), levelText[level], file, line)
 		fmt.Println(args...)
 		return
 	}
@@ -257,7 +257,7 @@ func (l *Logger) pf(level LEVEL, format string, args ...interface{}) {
 	if l == nil || l.debug {
 		mu.Lock()
 		defer mu.Unlock()
-		fmt.Printf("%s %s %s:%d", l.genTime(), levelText[level], file, line)
+		fmt.Printf("%s %s %s:%d ", l.genTime(), levelText[level], file, line)
 		fmt.Printf(format, args...)
 		fmt.Println()
 		return
