@@ -119,6 +119,9 @@ func (l *Logger) start() {
 }
 
 func (l *Logger) run() {
+	if l.debug {
+		return
+	}
 	go l.flush()
 	go l.start()
 }

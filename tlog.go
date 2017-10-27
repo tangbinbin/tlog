@@ -11,7 +11,26 @@ type Config struct {
 	Kafka    []string `toml:"kafka"`
 }
 
+func (c *Config) check() {
+	if c.FileSize == 0 {
+		c.FileSize = 128
+	}
+	if c.FileNum == 0 {
+		c.FileNum = 10
+	}
+	if c.FileName == "" {
+		c.FileName = "INFO"
+	}
+	if c.Dir == "" {
+		c.Dir = "./logs"
+	}
+	if c.Level == "" {
+		c.Level = "DEBUG"
+	}
+}
+
 func Init(c Config) {
+	c.check()
 	newLogger(c)
 	l.run()
 }
