@@ -50,8 +50,9 @@ func newLogger(config Config) {
 		topic:    config.Topic,
 		fileSize: config.FileSize * 1024 * 1024,
 		fileNum:  config.FileNum,
-		fileName: path.Join(config.Dir, config.FileName, ".log"),
+		fileName: path.Join(config.Dir, config.FileName+".log"),
 		debug:    config.Debug,
+		level:    getLevel(config.Level),
 		bytePool: &sync.Pool{New: func() interface{} { return new(bytes.Buffer) }},
 		ch:       make(chan *Atom, 1024),
 	}
@@ -111,7 +112,7 @@ func (l *Logger) start() {
 		if l.toKafka {
 			l.producer.Input() <- &sarama.ProducerMessage{
 				Topic: l.topic,
-				Value: sarama.StringEncoder(string(b)),
+				Value: sarama.ByteEncoder(b),
 			}
 		}
 	}
@@ -165,6 +166,19 @@ func (l *Logger) format(a *Atom) (int, []byte) {
 		byte(t%10) + 48,
 		32,
 	})
+	switch a.level {
+	case DEBUG:
+		w.WriteString("DEBUG ")
+	case INFO:
+		w.WriteString("INFO ")
+	case WARNING:
+		w.WriteString("WARNING ")
+	case ERROR:
+		w.WriteString("ERROR ")
+	case FATAL:
+		w.WriteString("FATAL ")
+	default:
+	}
 	w.WriteString(a.file)
 	w.Write([]byte{
 		58,
@@ -230,7 +244,7 @@ func (l *Logger) p(level LEVEL, args ...interface{}) {
 		fmt.Println(args...)
 		return
 	}
-	if level > l.level {
+	if level >= l.level {
 		l.ch <- &Atom{file: file, line: line, level: level, args: args}
 	}
 }
@@ -245,7 +259,7 @@ func (l *Logger) pf(level LEVEL, format string, args ...interface{}) {
 		fmt.Println()
 		return
 	}
-	if level > l.level {
+	if level >= l.level {
 		l.ch <- &Atom{file: file, line: line, format: format, level: level, args: args}
 	}
 }
