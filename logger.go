@@ -67,7 +67,7 @@ func newLogger(config Config) {
 	l.f, _ = os.OpenFile(l.fileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	fileInfo, _ := os.Stat(l.fileName)
 	l.s = int(fileInfo.Size())
-	l.w = bufio.NewWriterSize(l.f, 4*1024*1024)
+	l.w = bufio.NewWriterSize(l.f, 1024*1024)
 
 	if l.toKafka {
 		kafkaConfig := sarama.NewConfig()
@@ -102,9 +102,6 @@ func (l *Logger) start() {
 			l.w.Reset(l.f)
 			l.s = 0
 			l.rm()
-		}
-		if l.w.Buffered() > 1024*1024 {
-			l.w.Flush()
 		}
 		n, b := l.format(a)
 		l.w.Write(b)
