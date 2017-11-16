@@ -103,15 +103,18 @@ func (l *Logger) start() {
 			l.s = 0
 			l.rm()
 		}
-		n, b := l.format(a)
-		l.w.Write(b)
-		l.s += n
 		if l.toKafka {
+			n, b := l.format(a)
+			l.w.Write(b)
+			l.s += n
 			l.producer.Input() <- &sarama.ProducerMessage{
 				Topic: l.topic,
 				Value: sarama.ByteEncoder(b),
 			}
+		} else {
+			l.write(a)
 		}
+
 	}
 }
 
@@ -129,6 +132,55 @@ func (l *Logger) stop() {
 	}
 }
 
+func (l *Logger) write(a *Atom) {
+	now := time.Now()
+	t := now.Nanosecond() / 1000
+	_, month, day := now.Date()
+	hour, minute, second := now.Clock()
+	n, _ := l.w.Write([]byte{
+		byte(month/10) + 48, byte(month%10) + 48, '-', byte(day/10) + 48, byte(day%10) + 48, ' ',
+		byte(hour/10) + 48, byte(hour%10) + 48, ':', byte(minute/10) + 48, byte(minute%10) + 48, ' ',
+		byte(second/10) + 48, byte(second%10) + 48, '.',
+		byte((t%1000000)/100000) + 48, byte((t%100000)/10000) + 48, byte((t%10000)/1000) + 48,
+		byte((t%1000)/100) + 48, byte((t%100)/10) + 48, byte(t%10) + 48, ' ',
+	})
+	l.s += n
+	switch a.level {
+	case DEBUG:
+		w.WriteString("DEBUG ")
+		l.s += 6
+	case INFO:
+		w.WriteString("INFO ")
+		l.s += 5
+	case WARNING:
+		w.WriteString("WARNING ")
+		l.s += 8
+	case ERROR:
+		w.WriteString("ERROR ")
+		l.s += 6
+	case FATAL:
+		w.WriteString("FATAL ")
+		l.s += 6
+	default:
+	}
+	n, _ = w.WriteString(a.file)
+	w.Write([]byte{':', byte((a.line%10000)/1000) + 48, byte((a.line%1000)/100) + 48,
+		byte((a.line%100)/10) + 48, byte(a.line%10) + 48, ' '})
+	l.s += n
+	l.s += 6
+	if len(a.format) == 0 {
+		l.w.Write(' ')
+		l.s++
+		n, _ = fmt.Fprint(w, a.args...)
+		l.s += n
+	} else {
+		n, _ = fmt.Fprintf(w, a.format, a.args...)
+		l.s += n
+	}
+	w.WriteByte(10)
+	l.s++
+}
+
 func (l *Logger) format(a *Atom) (int, []byte) {
 	w := l.bytePool.Get().(*bytes.Buffer)
 	defer func() {
@@ -137,34 +189,15 @@ func (l *Logger) format(a *Atom) (int, []byte) {
 	}()
 	now := time.Now()
 	t := now.Nanosecond() / 1000
-	year, month, day := now.Date()
+	_, month, day := now.Date()
 	hour, minute, second := now.Clock()
-	w.Write([]byte{
-		50, 48, 49,
-		byte(year%10) + 48,
-		45, //"-"
-		byte(month/10) + 48,
-		byte(month%10) + 48,
-		45,
-		byte(day/10) + 48,
-		byte(day%10) + 48,
-		32, //" "
-		byte(hour/10) + 48,
-		byte(hour%10) + 48,
-		58,
-		byte(minute/10) + 48,
-		byte(minute%10) + 48,
-		58,
-		byte(second/10) + 48,
-		byte(second%10) + 48,
-		46,
-		byte((t%1000000)/100000) + 48,
-		byte((t%100000)/10000) + 48,
-		byte((t%10000)/1000) + 48,
-		byte((t%1000)/100) + 48,
-		byte((t%100)/10) + 48,
-		byte(t%10) + 48,
-		32,
+	w.Write([]byte{byte(month/10) + 48, byte(month%10) + 48, '-',
+		byte(day/10) + 48, byte(day%10) + 48, ' ',
+		byte(hour/10) + 48, byte(hour%10) + 48, ':',
+		byte(minute/10) + 48, byte(minute%10) + 48, ':',
+		byte(second/10) + 48, byte(second%10) + 48, '.',
+		byte((t%1000000)/100000) + 48, byte((t%100000)/10000) + 48, byte((t%10000)/1000) + 48,
+		byte((t%1000)/100) + 48, byte((t%100)/10) + 48, byte(t%10) + 48, ' ',
 	})
 	switch a.level {
 	case DEBUG:
@@ -180,14 +213,10 @@ func (l *Logger) format(a *Atom) (int, []byte) {
 	default:
 	}
 	w.WriteString(a.file)
-	w.Write([]byte{
-		58,
-		byte((a.line%10000)/1000) + 48,
-		byte((a.line%1000)/100) + 48,
-		byte((a.line%100)/10) + 48,
-		byte(a.line%10) + 48,
-		32})
-	if a.format == "" {
+	w.Write([]byte{':', byte((a.line%10000)/1000) + 48, byte((a.line%1000)/100) + 48,
+		byte((a.line%100)/10) + 48, byte(a.line%10) + 48, ' '})
+	if len(a.format) == 0 {
+		w.WriteByte(' ')
 		fmt.Fprint(w, a.args...)
 	} else {
 		fmt.Fprintf(w, a.format, a.args...)
