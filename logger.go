@@ -145,39 +145,24 @@ func (l *Logger) write(a *Atom) {
 		byte((t%1000)/100) + 48, byte((t%100)/10) + 48, byte(t%10) + 48, ' ',
 	})
 	l.s += n
-	switch a.level {
-	case DEBUG:
-		w.WriteString("DEBUG ")
-		l.s += 6
-	case INFO:
-		w.WriteString("INFO ")
-		l.s += 5
-	case WARNING:
-		w.WriteString("WARNING ")
-		l.s += 8
-	case ERROR:
-		w.WriteString("ERROR ")
-		l.s += 6
-	case FATAL:
-		w.WriteString("FATAL ")
-		l.s += 6
-	default:
-	}
-	n, _ = w.WriteString(a.file)
-	w.Write([]byte{':', byte((a.line%10000)/1000) + 48, byte((a.line%1000)/100) + 48,
+	n, _ = l.w.WriteString(levelText[a.level])
+	l.s += n
+	n, _ = l.w.WriteString(a.file)
+	l.w.Write([]byte{':', byte((a.line%10000)/1000) + 48, byte((a.line%1000)/100) + 48,
 		byte((a.line%100)/10) + 48, byte(a.line%10) + 48, ' '})
 	l.s += n
 	l.s += 6
 	if len(a.format) == 0 {
-		l.w.Write(' ')
+		l.w.WriteByte(' ')
 		l.s++
-		n, _ = fmt.Fprint(w, a.args...)
+		n, _ = fmt.Fprint(l.w, a.args...)
 		l.s += n
 	} else {
-		n, _ = fmt.Fprintf(w, a.format, a.args...)
+		l.w.WriteByte(' ')
+		n, _ = fmt.Fprintf(l.w, a.format, a.args...)
 		l.s += n
 	}
-	w.WriteByte(10)
+	l.w.WriteByte(10)
 	l.s++
 }
 
@@ -199,19 +184,7 @@ func (l *Logger) format(a *Atom) (int, []byte) {
 		byte((t%1000000)/100000) + 48, byte((t%100000)/10000) + 48, byte((t%10000)/1000) + 48,
 		byte((t%1000)/100) + 48, byte((t%100)/10) + 48, byte(t%10) + 48, ' ',
 	})
-	switch a.level {
-	case DEBUG:
-		w.WriteString("DEBUG ")
-	case INFO:
-		w.WriteString("INFO ")
-	case WARNING:
-		w.WriteString("WARNING ")
-	case ERROR:
-		w.WriteString("ERROR ")
-	case FATAL:
-		w.WriteString("FATAL ")
-	default:
-	}
+	w.WriteString(levelText[a.level])
 	w.WriteString(a.file)
 	w.Write([]byte{':', byte((a.line%10000)/1000) + 48, byte((a.line%1000)/100) + 48,
 		byte((a.line%100)/10) + 48, byte(a.line%10) + 48, ' '})
@@ -219,6 +192,7 @@ func (l *Logger) format(a *Atom) (int, []byte) {
 		w.WriteByte(' ')
 		fmt.Fprint(w, a.args...)
 	} else {
+		w.WriteByte(' ')
 		fmt.Fprintf(w, a.format, a.args...)
 	}
 	w.WriteByte(10)
